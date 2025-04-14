@@ -2,6 +2,7 @@
 import random as rand
 from Crypto.Cipher import AES
 import secrets
+import urllib.parse  # import for URL encoding/decoding
 
 # generate key and IV
 key = secrets.token_bytes(16)  # create a random 16-byte key
@@ -76,17 +77,25 @@ def submit():
     inputStr = input("enter your stuff here: ")  # get user input
     
     # format the input string with user and session IDs
-    inputStr = "userid=" + str(userid) + ";userdata=" + inputStr + ";sessionid=" + str(sessionid)
+    formatted_str = "userid=" + str(userid) + ";userdata=" + inputStr + ";sessionid=" + str(sessionid)
+    
+    # url encode non-alphanumeric characters in the input
+    encoded_input = urllib.parse.quote(formatted_str, safe='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
     
     # encrypt the padded input
-    inputStr = pad_text(inputStr, BLOCK_SIZE)  # apply padding
-    inputStr = CBC_encrypt(inputStr, key, IV)  # encrypt with CBC mode
-    return inputStr
+    padded_str = pad_text(encoded_input, BLOCK_SIZE)  # apply padding
+    encrypted_str = CBC_encrypt(padded_str, key, IV)  # encrypt with CBC mode
+    return encrypted_str
 
 def verify(cipherText):
     # decrypt and verify the ciphertext
     plainText = CBC_decrypt(cipherText, key, IV)  # decrypt with CBC mode
-    return unpad(plainText).decode('utf-8')  # remove padding and convert to string
+    unpadded_text = unpad(plainText).decode('utf-8')  # remove padding and convert to string
+    
+    # decode the URL encoded text
+    decoded_text = urllib.parse.unquote(unpadded_text)
+    
+    return decoded_text
 
 def main():
     # main function to run the program
