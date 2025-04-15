@@ -70,20 +70,24 @@ def unpad(padded_data):
     padding_length = padded_data[-1]  # last byte indicates padding length
     return padded_data[:-padding_length]  # remove padding bytes
 
-def submit():
+def submit(inputStr = ""):
     # prepare and encrypt user input
     userid = 456
     sessionid = 31337
-    inputStr = input("enter your stuff here: ")  # get user input
+
+    if inputStr == "":  # optional parameter for testing the bit flip exploit
+        inputStr = input("enter your stuff here: ")  # get user input
+    
+    print(inputStr)
+
+    # url encode non-alphanumeric characters in the input
+    encoded_input = urllib.parse.quote(inputStr, safe='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
     
     # format the input string with user and session IDs
-    formatted_str = "userid=" + str(userid) + ";userdata=" + inputStr + ";sessionid=" + str(sessionid)
-    
-    # url encode non-alphanumeric characters in the input
-    encoded_input = urllib.parse.quote(formatted_str, safe='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+    formatted_str = "userid=" + str(userid) + ";userdata=" + encoded_input + ";sessionid=" + str(sessionid)
     
     # encrypt the padded input
-    padded_str = pad_text(encoded_input, BLOCK_SIZE)  # apply padding
+    padded_str = pad_text(formatted_str, BLOCK_SIZE)  # apply padding
     encrypted_str = CBC_encrypt(padded_str, key, IV)  # encrypt with CBC mode
     return encrypted_str
 
@@ -92,16 +96,16 @@ def verify(cipherText):
     plainText = CBC_decrypt(cipherText, key, IV)  # decrypt with CBC mode
     unpadded_text = unpad(plainText).decode('utf-8')  # remove padding and convert to string
     
-    # decode the URL encoded text
-    decoded_text = urllib.parse.unquote(unpadded_text)
-    
-    return decoded_text
+    return ";admin=true;" in unpadded_text
+
+def bitFlip(ciphertext):
+    pass
 
 def main():
     # main function to run the program
     cipherText = submit()  # get and encrypt user input
-    plainText = verify(cipherText)  # decrypt the ciphertext
-    print(plainText)  # display the result
-
+    verification = verify(cipherText)  # decrypt the ciphertext and verify
+    print(verification)  # display the result
+    
 if __name__ == '__main__':
     main()  # run the main function if script is executed directly
