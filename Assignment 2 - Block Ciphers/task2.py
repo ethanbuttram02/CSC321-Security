@@ -77,8 +77,7 @@ def submit(inputStr = ""):
 
     if inputStr == "":  # optional parameter for testing the bit flip exploit
         inputStr = input("enter your stuff here: ")  # get user input
-    
-    print(inputStr)
+    if inputStr==";admin=true;": exit("invalid entry")
 
     # url encode non-alphanumeric characters in the input
     encoded_input = urllib.parse.quote(inputStr, safe='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
@@ -94,18 +93,68 @@ def submit(inputStr = ""):
 def verify(cipherText):
     # decrypt and verify the ciphertext
     plainText = CBC_decrypt(cipherText, key, IV)  # decrypt with CBC mode
-    unpadded_text = unpad(plainText).decode('utf-8')  # remove padding and convert to string
+    unpadded_text = unpad(plainText).decode("utf-8", errors="replace")  # remove padding and convert to string
     
-    return ";admin=true;" in unpadded_text
+    # decode the URL encoded text
+    decoded_text = urllib.parse.unquote(unpadded_text)
 
-def bitFlip(ciphertext):
-    pass
+    return ";admin=true;" in decoded_text
+
+def bitflip():
+    """
+    Performs a targeted CBC bit-flipping attack to make verify() return true.
+    Focuses on changing '%3F' to '%3D' in the URL-encoded string.
+    """
+    # create a payload with a pattern we can modify
+    payload = ";admin?true;"
+    
+    # get the ciphertext for our payload
+    ciphertext = submit(payload)
+    
+    # create a modifiable copy of the ciphertext
+    modified = bytearray(ciphertext)
+    
+    # calculate the position of 'F' in '%3F' in the formatted string
+    # the formatted string is: "userid=456;userdata=%3Badmin%3Ftrue%3B;sessionid=31337"
+    
+    # in our URL-encoded payload:
+    # ';' becomes '%3B' (3 bytes)
+    # '?' becomes '%3F' (3 bytes)
+    
+    # the prefix "userid=456;userdata=" is 20 bytes
+    # then "%3B" is 3 bytes, so "admin" starts at byte 23
+    # "admin" is 5 bytes, so '%3F' starts at byte 28
+    # the 'F' in '%3F' is at position 30
+    
+    prefix_length = len("userid=456;userdata=")  # 20 bytes
+    encoded_semicolon_length = 3  # %3B is 3 bytes
+    admin_length = 5  # "admin" is 5 bytes
+    
+    # position of 'F' in '%3F'
+    pos_of_F = prefix_length + encoded_semicolon_length + admin_length + 2  # +2 for %3 in %3F
+    
+    # calculate which block and position this falls into
+    block_size = 16
+    block_number = pos_of_F // block_size  # should be 1 or 2 (0-indexed)
+    position_in_block = pos_of_F % block_size  # position within that block
+    
+    # we need to modify the byte in the previous block at the same position
+    modify_position = ((block_number - 1) * block_size) + position_in_block
+    
+    # the ASCII difference between 'F' (70) and 'D' (68) is 2
+    # XORing with 2 will change 'F' to 'D', thus changing '%3F' to '%3D'
+    if modify_position >= 0 and modify_position < len(modified):
+        modified[modify_position] ^= 2
+    
+    # return the result of verify with the modified ciphertext
+    return verify(bytes(modified))
 
 def main():
     # main function to run the program
     cipherText = submit()  # get and encrypt user input
     verification = verify(cipherText)  # decrypt the ciphertext and verify
     print(verification)  # display the result
+    print(bitflip())
     
 if __name__ == '__main__':
     main()  # run the main function if script is executed directly
