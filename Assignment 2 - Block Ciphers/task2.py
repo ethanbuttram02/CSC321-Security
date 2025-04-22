@@ -1,5 +1,4 @@
 # package imports
-import random as rand
 from Crypto.Cipher import AES
 import secrets
 import urllib.parse  # import for URL encoding/decoding
